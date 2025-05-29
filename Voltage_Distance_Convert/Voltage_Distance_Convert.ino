@@ -1,10 +1,10 @@
-#define NUM_POINTS 43
+#define NUM_PLOTS 43
 #define SENSOR_PIN A0 // Change this to the actual analog pin used
 
 // Voltage values (in V) measured from graph
 // Voltage values (in V) measured from graph
 
-const float voltages[NUM_POINTS] = {
+const float voltages[NUM_PLOTS] = {
     1.7270110707947777, 2.2247800038486716, 1.9922157649537575, 
     2.408383260235912, 2.4573440715369714, 2.3390219824877843, 
     2.2043796230049097, 2.081977509148954, 1.9106144127853246, 
@@ -23,7 +23,7 @@ const float voltages[NUM_POINTS] = {
 };
 
 // Corresponding distances (in cm)
-const float distances[NUM_POINTS] = {
+const float distances[NUM_PLOTS] = {
     0.5562815055190924, 0.7802880276325083, 0.5936169702784208, 
     1.0042945497459181, 1.2283042050806139, 1.4896399255107982, 
     1.6763109828648828, 2.0123207660350038, 2.460333810261832, 
@@ -65,12 +65,12 @@ float getDistanceFromVoltage(float voltage) {
 
 void setup() {
     Serial.begin(115200);
-    analogReadResolution(12); // Arduino Giga uses 12-bit ADC: values from 0–4095
+    // analogReadResolution(12); // Arduino Giga uses 12-bit ADC: values from 0–4095
 }
 
 void loop() {
     int rawValue = analogRead(SENSOR_PIN);
-    float voltage = rawValue * (3.3 / 4095.0); // Convert to volts assuming 3.3V ref
+    float voltage = rawValue * (5 / 4095.0); // Convert to volts assuming 3.3V ref
 
     float distance = getDistanceFromVoltage(voltage);
 
