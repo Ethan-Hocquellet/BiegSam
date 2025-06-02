@@ -1,0 +1,370 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <Motoron.h>
+#include <QTRSensors.h>
+#include <Servo.h>
+
+#define AVERAGE_OF 50
+#define MCU_VOLTAGE 5
+
+Servo myservo;
+
+MotoronI2C mc1(0x10);
+MotoronI2C mc2(0x50);
+
+const int n = 2; // Number of IR Distance
+const int u_n = 2; // Number of Ultrasonic
+const int sensorPin[] = {A0, A1}; // n must match array size of sensorPin[]}
+float distance[n];
+float u_distance[u_n];
+long duration[u_n]; // duration for two ultrasonic sensors
+float u_duration[u_n];
+float angleError, distanceError;
+
+const float sensorSeparation = 15; // distance between the two IR distance sensors
+
+// Ultrasonic 1
+const int trigPin1 = 8;
+const int echoPin1 = 9;
+// Ultrasonic 2
+const int trigPin2 = 10; // change for correct pins
+const int echoPin2 = 11;
+
+enum ServoMode { SHORT_MODE, LONG_MODE };
+ServoMode servoMode = SHORT_MODE; // Default mode
+
+// define wall following and turning modes
+enum WallMode { WALL_FOLLOW, TURNING };
+WallMode wallMode = WALL_FOLLOW;
+
+
+// Func prototypes because Sophia told us to :)
+void readDistance(int sensor);
+// @readDistance for GP2Y0A51SK0F
+void readUltrasonic(void);
+// @readUltrasonic for Ultrasonic
+void turnRight(void);
+// @turnRight for turning right by 90 degrees :)
+void PID(void);
+// @PID for PID control of the robot
+void setMotor(int motor, int speed);
+// @setMotor for setting motor speed
+void setLeftMotors(int speed);
+// @setLeftMotors for setting left motors speed
+void setRightMotors(int speed);
+// @setRightMotors for setting right motors speed
+void MotoronSetup(void);
+// @MotoronSetup for initialising the Motoron I2C bus
+void setServoMax(void);
+// @setServoMax for setting the servo to maximum position
+void setServoMin(void);
+// @setServoMin for setting the servo to minimum position
+void setServoFlat(void);
+// @setServoFlat for setting the servo to flat position
+
+// May need to add an alignment function e.g. void alignWall(void);
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200); 
+
+  MotoronSetup(); // Initialise Motors
+  myservo.attach(52);
+
+  // Ultrasonic sensor setup
+  pinMode(trigPin1, OUTPUT);
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  pinMode(echoPin2, INPUT);
+
+  Serial.print("Ultra Sound Sensors Initialised \n");
+
+  if (servoMode == SHORT_MODE) {
+    setServoMax(); // Set servo to maximum position
+    Serial.println("Servo set to maximum position.");
+  } else if (servoMode == LONG_MODE) {
+    setServoMin(); // Set servo to minimum position
+    Serial.println("Servo set to minimum position.");
+  }
+  
+  Serial.println("Wall Following Script:\n");
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+  // Iterate for each IR distance sensor used (in case we add more)
+  for (int i=0; i<n; i++) {
+    readDistance(i);
+    Serial.print("Distance Sensor ");
+    Serial.print(i);
+    Serial.print(" : ");
+    Serial.print(distance[i]);
+    Serial.println("cm");
+  }
+  // Checks both (two) ultrasonic sensors
+  readUltrasonic();
+  // Check if the object is within 10 cm (sensor one - change to front or back)
+  if (u_distance[0] < 10.0) {
+    Serial.print("Wall detected Ultrasound Sensor 1 (distance < 10 cm):");
+    Serial.print(u_distance[0], 2);
+    Serial.println(" cm");
+    wallMode = TURNING; // Change to turning mode
+  } else {
+    Serial.print("Distance: ");
+    Serial.print(u_distance[0], 2);
+    Serial.println(" cm");
+    wallMode = WALL_FOLLOW; // Change to wall following mode
+  }
+
+  // Change to front or back
+  if (distance[1] < 10.0) {
+    Serial.print("Wall detected Ultrasound Sensor 2 (distance < 10 cm):");
+    Serial.print(u_distance[1], 2);
+    Serial.println(" cm");
+    wallMode = TURNING; // Change to turning mode
+  } else {
+    Serial.print("Distance: ");
+    Serial.print(u_distance[1], 2);
+    Serial.println(" cm");
+    wallMode = WALL_FOLLOW; // Change to wall following mode
+  }
+
+  // if (u_distance[0] < 10.0 || u_distance[1] < 10.0) { // if either front distance sensor (could be just one)
+  //   // If wall detected, turn right
+  //   Serial.println("Wall detected, turning right...");
+  //   wallMode = TURNING; // Change to turning mode
+  // } else {
+  //   // If no wall detected, continue wall following
+  //   if (wallMode == TURNING) {
+  //     Serial.println("Resuming wall following...");
+  //     wallMode = WALL_FOLLOW; // Change back to wall following mode
+  //   }
+  // }
+
+  if (wallMode == TURNING) {
+    turnRight(); // Call turn right function
+  } else {
+    PID(); // Call PID function
+  }
+
+  delay(500); // Necessary for ultrasonic?
+}
+
+void readDistance(int sensor)
+{
+      float voltage_temp_average=0;
+      
+      for(int i=0; i < AVERAGE_OF; i++)
+    {
+      int sensorValue = analogRead(sensorPin[sensor] );
+      delay(1);      
+      voltage_temp_average +=sensorValue * (MCU_VOLTAGE / 1023.0);
+
+    }
+     voltage_temp_average /= AVERAGE_OF; // /= operator is equivalent to voltage_temp_average = voltage_temp_average / AVERAGE_OF
+
+  // equation of the fitting curve found using data values
+  // << 33.9 + -69.5x + 62.3x^2 + -25.4x^3 + 3.83x^4 >>
+  distance[sensor] = 33.9 + -69.5*(voltage_temp_average) + 62.3*pow(voltage_temp_average,2) + -25.4*pow(voltage_temp_average,3) + 3.83*pow(voltage_temp_average,4); 
+  if (distance[sensor] > 20) {
+    distance[sensor] = -1;
+  }
+}
+
+void readUltrasonic(void) 
+{
+  // Clear the trigger pin
+  digitalWrite(trigPin1, LOW);
+  digitalWrite(trigPin2, LOW);
+  delayMicroseconds(2);
+
+  // Send a 10-microsecond HIGH pulse
+  digitalWrite(trigPin1, HIGH);
+  digitalWrite(trigPin2, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin1, LOW);
+  digitalWrite(trigPin2, LOW);
+
+  // Measure the duration of the echo pulse
+  u_duration[0] = pulseIn(echoPin1, HIGH);
+  u_duration[1] = pulseIn(echoPin2, HIGH); // duration of second ultrasound
+
+  // Calculate the distance in centimeters
+  u_distance[0] = u_duration[0] * 0.034 / 2;
+  u_distance[1] = u_duration[1] * 0.034 / 2;
+
+  // delay(500);  // Wait before next measurement
+}
+
+
+void PID() {
+  // --- Get IR sensor values ---
+  float leftFront = distance[0]; // A0
+  float leftBack = distance[1];  // A1
+
+  // PID gains distance
+  const float distanceKp = 5;
+  const float distanceKi = 0;
+  const float distanceKd = 0;
+
+  // PID gains angle
+  const float angleKp = 5;
+  const float angleKi = 0;
+  const float angleKd = 0;
+
+  static float prevDistanceError = 0;
+  static float distanceIntegral = 0;
+  static float prevAngleError = 0;
+  static float angleIntegral = 0;
+  static float lastTime = 0; // for dt
+  unsigned long currentTime = millis(); 
+
+  float dt = (currentTime - lastTime) / 1000; // convert to seconds
+  lastTime = currentTime;
+
+  if (leftFront > 0 && leftBack > 0) { // valid values
+    float targetDistance = 7.5;
+
+    // // Compute errors
+    // float distanceError = ((leftFront + leftBack) / 2.0) - targetDistance;
+    // float angleError = leftFront - leftBack;
+
+    // Compute errors
+    float difference = distance[0] - distance[1]; // front - back
+    float meanDistance = (distance[0] + distance[1]) / 2.0;
+    angleError = atan2(difference, sensorSeparation); // angle in radians (target angle = 0)
+    distanceError = (meanDistance * cos(angleError)) - targetDistance; // perpendicular distance to the wall
+
+
+    // Integral terms
+    distanceIntegral += distanceError * dt; // provided dt > 0
+    angleIntegral += angleError * dt;
+
+    // Derivative terms
+    float distanceDerivative = (distanceError - prevDistanceError) / dt;
+    float angleDerivative = (angleError - prevAngleError) / dt;
+
+    // PID output
+    float totalDistanceError = distanceKp * distanceError + distanceKi * distanceIntegral + distanceKd * distanceDerivative;
+    float totalAngleError = angleKp * angleError + angleKi * angleIntegral + angleKd * angleDerivative;
+
+    // Try this one:
+
+    // float totalError = distanceKp * distanceError + distanceKi * distanceIntegral + distanceKd * distanceDerivative + angleKp * angleError +
+    //   angleKi * angleIntegral + angleKd * angleDerivative;
+
+    // // Apply totalError to motor speeds
+    // float baseSpeed = 300; 
+    // float leftSpeed = baseSpeed + totalError;
+    // float rightSpeed = baseSpeed - totalError;
+
+
+    // Or option two
+    float baseSpeed = 300; 
+    float leftSpeed = baseSpeed - totalDistanceError + totalAngleError;
+    float rightSpeed = baseSpeed + totalDistanceError - totalAngleError;
+
+    // Set motor speeds
+    setLeftMotors(leftSpeed); // **change to back left motor**
+    setRightMotors(rightSpeed); // **change to back right motor**
+
+    prevDistanceError = distanceError;
+    prevAngleError = angleError;
+  } else { // If sensor values are invalid
+    float baseSpeed = 300;
+    setLeftMotors(baseSpeed); // **change to back left motor**
+    setRightMotors(baseSpeed); // **change to back right motor**
+  }
+}
+
+// Motor Control
+void setMotor(int motor, int speed) {
+  speed = constrain(speed, -800, 800);
+  switch (motor) {
+    case 1: mc2.setSpeed(1, speed); break;
+    case 2: mc1.setSpeed(1, speed); break;
+    case 3: mc2.setSpeed(3, -speed); break;
+    case 4: mc1.setSpeed(3, speed); break;
+  }
+}
+
+// Motor Speeds
+void setLeftMotors(int speed) {
+  setMotor(2, speed);
+}
+
+void setRightMotors(int speed) {
+  setMotor(4, speed);
+}
+
+// ======= Motoron初始化 =======
+void MotoronSetup() {
+  Wire.begin();
+  mc1.setBus(&Wire);
+  mc2.setBus(&Wire);
+  mc1.reinitialize();
+  mc1.disableCrc();
+  mc1.disableCommandTimeout();
+  mc1.clearResetFlag();
+  mc2.reinitialize();
+  mc2.disableCrc();
+  mc2.disableCommandTimeout();
+  mc2.clearResetFlag();
+}
+
+void setServoMax() {
+  int pos;
+  int initPos = myservo.read();
+
+  for (pos = initPos; pos <= 140; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);
+  }
+}
+
+void setServoMin() {
+  int pos;
+  int initPos = myservo.read();
+
+  for (pos = initPos; pos >= 30; pos -= 1) { // goes from 180 degrees to 0 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);
+  }
+}
+
+void setServoFlat() {
+  int pos;
+  int initPos = myservo.read();
+
+  // Decrement position
+  if (initPos > 30) {
+    for (pos = initPos; pos <= 30; pos -= 1) { // goes from 180 degrees to 0 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);
+    }
+  }
+
+  // Increment position
+  else if (initPos < 30) {
+    for (pos = initPos; pos >= 30; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);
+    }
+  } 
+}
+
+void turnRight() { // Needs editing and testing
+  // Turn right by setting the left motor to a negative speed and the right motor to a positive speed
+  setLeftMotors(-150);
+  setRightMotors(150);
+  delay(600); // Adjust delay for desired turn angle
+  setLeftMotors(0);
+  setRightMotors(0);
+  Serial.println("Turned right by 90 degrees.");
+}
