@@ -5,14 +5,13 @@
 #include <Servo.h>
 #include <ICM20948_WE.h>
 #include <math.h>
-#include <WifiS3.h> // Works with Giga
+// #include <WifiS3.h> // Works with Giga
 #include <WiFiUdp.h>
 
 #define AVERAGE_OF 50
 #define MCU_VOLTAGE 5
 #define ICM20948_ADDR 0x68 // ICM20948 address;
 #define DEBUG 1 // Set to 1 to enable debug messages
-
 
 Servo myservo;
 ICM20948_WE myIMU = ICM20948_WE(ICM20948_ADDR); 
@@ -61,8 +60,8 @@ ServoMode servoMode = SHORT_MODE; // Default mode
 enum WallMode { WALL_FOLLOW, TURNING };
 WallMode wallMode = WALL_FOLLOW;
 
-enum TurnDirection { CLOCKWISE, ANTICLOCKWISE, FLIP, STRAIGHT };
-TurnDirection turnDirection = CLOCKWISE; // Default turn direction
+enum SpinDirection { CLOCKWISE, ANTICLOCKWISE, FLIP, STRAIGHT };
+SpinDirection spinDirection = CLOCKWISE; // Default turn direction
 
 enum Orientation { LINE_TRACKING, WALL_TRACKING }; // LINE_TRACKING = black first
 Orientation orientation = LINE_TRACKING; // Default orientation
@@ -108,7 +107,7 @@ void setServoFlat(void);
 // @setServoFlat for setting the servo to flat position
 void IMU(void);
 // @IMU for reading the IMU data and calculating angles
-void turnAngle(TurnDirection turnDirection);
+void turnAngle(SpinDirection spinDirection);
 // @turnAngle for turning the robot by a specified angle
 
 // May need to add an alignment function e.g. void alignWall(void);
@@ -210,7 +209,7 @@ void loop() {
     IMU(); // Read angle[]
     if (!isTurning) startAngle = angle[2];
     isTurning = true; // Set turning flag
-    turnAngle(turnDirection);
+    turnAngle(spinDirection);
   }
   else {
     PID(); // Call PID function
@@ -562,13 +561,13 @@ void turnRight() { // Needs editing and testing deprecated
   delay(2000);
 }
 
-void turnAngle(TurnDirection turnDirection) {
+void turnAngle(SpinDirection spinDirection) {
   float targetAngle = 0;
   int leftSpeed = 0;
   int rightSpeed = 0;
 
   // Calculate target angle based on the current angle and the turn direction
-  switch (turnDirection) {
+  switch (spinDirection) {
     case CLOCKWISE:
       targetAngle = 90.0;
       leftSpeed = 800;
@@ -601,11 +600,11 @@ void turnAngle(TurnDirection turnDirection) {
   }
 
   bool finishedTurning = false;
-  if (turnDirection == FLIP) {
+  if (spinDirection == FLIP) {
     finishedTurning = fabs(angleDifference) >= fabs(targetAngle);
   } else { // logic for 90degree turns
-    finishedTurning = (turnDirection == CLOCKWISE && angleDifference >= targetAngle) ||
-    (turnDirection == ANTICLOCKWISE && angleDifference <= targetAngle);
+    finishedTurning = (spinDirection == CLOCKWISE && angleDifference >= targetAngle) ||
+    (spinDirection == ANTICLOCKWISE && angleDifference <= targetAngle);
   }
 
   if (!finishedTurning) {
