@@ -68,13 +68,15 @@ void setMotor(int motor, int speed);
 void setLeftMotors(int speed);
 // @setLeftMotors for setting left motors speed
 void setRightMotors(int speed);
-
+// @setRightMotors for setting right motors speed DEPRECATED
 void setGreenLeft(int speed);
+// @setGreenLeft for setting the green left motor speed
 void setBlackLeft(int speed);
+// @setBlackLeft for setting the black left motor speed
 void setGreenRight(int speed);
+// @setGreenRight for setting the green right motor speed
 void setBlackRight(int speed);
-
-
+// @setBlackRight for setting the black right motor speed
 // @setRightMotors for setting right motors speed
 void MotoronSetup(void);
 // @MotoronSetup for initialising the Motoron I2C bus
@@ -84,6 +86,10 @@ void setServoMin(void);
 // @setServoMin for setting the servo to minimum position
 void setServoFlat(void);
 // @setServoFlat for setting the servo to flat position
+void IMU(void);
+// @IMU for reading the IMU data and calculating angles
+void turnAngle(TurnDirection turnDirection);
+// @turnAngle for turning the robot by a specified angle
 
 // May need to add an alignment function e.g. void alignWall(void);
 
@@ -172,7 +178,8 @@ void loop() {
   // PID();
   // Serial.println("PID Called");
 
-  delay(200); // Necessary for ultrasonic?
+  // delay(100); default
+  delay(200); // Change for reading Serial data
 }
 
 void readDistance(int sensor)
@@ -297,9 +304,9 @@ void PID() {
   }
 }
 
-// Motor Control
 void setMotor(int motor, int speed) {
   speed = constrain(speed, -800, 800);
+  if (orientation == LINE_TRACKING) speed = -speed; // Reverse speed for line tracking
   switch (motor) {
     case 1: mc2.setSpeed(1, -speed); break;
     case 2: mc1.setSpeed(1, speed); break;
@@ -308,7 +315,6 @@ void setMotor(int motor, int speed) {
   }
 }
 
-// Motor Speeds
 void setLeftMotors(int speed) {
   setMotor(2, speed); // Green left (Black is FRONT)
   setMotor(1, speed); // Black left
@@ -335,8 +341,6 @@ void setBlackRight(int speed) {
   setMotor(3, speed);
 }
 
-
-// ======= Motoron初始化 =======
 void MotoronSetup() {
   Wire.begin();
   mc1.setBus(&Wire);
@@ -396,7 +400,6 @@ void setServoFlat() {
   } 
 }
 
-
 void IMU() {
   float angleX = 0.0;
   float angleY = 0.0;
@@ -448,8 +451,7 @@ void IMU() {
   delay(20); // Approx. 50Hz sampling
 }
 
-
-void turnRight() { // Needs editing and testing
+void turnRight() { // Needs editing and testing deprecated
   // Turn right by setting the left motor to a negative speed and the right motor to a positive speed 
   setGreenLeft(800);
   setGreenRight(-800);
