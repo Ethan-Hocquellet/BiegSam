@@ -5,6 +5,8 @@
 #include <Servo.h>
 #include <ICM20948_WE.h>
 #include <math.h>
+#include <WifiS3.h> // Works with Giga
+#include <WiFiUdp.h>
 
 #define AVERAGE_OF 50
 #define MCU_VOLTAGE 5
@@ -16,6 +18,7 @@ Servo myservo;
 ICM20948_WE myIMU = ICM20948_WE(ICM20948_ADDR); 
 MotoronI2C mc1(0x10);
 MotoronI2C mc2(0x50);
+WiFiUDP udp;
 
 const int n = 2; // Number of IR Distance
 const int u_n = 2; // Number of Ultrasonic
@@ -27,20 +30,30 @@ float u_duration[u_n];
 float angleError, distanceError;
 float angle[3]; // angle[0] = x, angle[1] = y, angle[2] = z
 
-// turning
-float startAngle = 0.0; // Starting angle for turning function
-bool isTurning = false;
-
-const float sensorSeparation = 23; // distance between the two IR distance sensors
+// WiFi + Kill Switch
+const char* ssid = "PhaseSpaceNetwork_2.4G"; // WiFi SSID
+const char* password = "8igMacNet"; // WiFi Password
+unsigned int localPort = 55500; // Local port for UDP
+char packetBuffer[64]; // Buffer for incoming UDP packets
+bool motorsStopped = false; // Flag to check if motors are stopped
+const int buttonPin = 2;
+bool lastButtonState = HIGH; // Last state of the button
+bool buttonPressed = false; // Flag to check if button is pressed
 
 // Ultrasonic 1
 const int trigPin1 = 0;
 const int echoPin1 = 1;
 // Ultrasonic 2
 const int trigPin2 = 11; // change for correct pins
-
 const int echoPin2 = 12;
 
+// turning
+float startAngle = 0.0; // Starting angle for turning function
+bool isTurning = false;
+
+const float sensorSeparation = 23; // distance between the two IR distance sensors
+
+// enums
 enum ServoMode { SHORT_MODE, LONG_MODE };
 ServoMode servoMode = SHORT_MODE; // Default mode
 
@@ -55,6 +68,14 @@ enum Orientation { LINE_TRACKING, WALL_TRACKING }; // LINE_TRACKING = black firs
 Orientation orientation = LINE_TRACKING; // Default orientation
 
 // Func prototypes because Sophia told us to :)
+void checkWiFi(void);
+// @checkWiFi for checking WiFi connection and receiving UDP messages
+void checkButton(void);
+// @checkButton for checking button state and toggling motors
+void stopAllMotors(void);
+// @stopAllMotors for stopping all motors
+void startAllMotors(int speed);
+// @startAllMotors for starting all motors with a specified speed
 void readDistance(int sensor);
 // @readDistance for GP2Y0A51SK0F
 void readUltrasonic(void);
@@ -77,7 +98,6 @@ void setGreenRight(int speed);
 // @setGreenRight for setting the green right motor speed
 void setBlackRight(int speed);
 // @setBlackRight for setting the black right motor speed
-// @setRightMotors for setting right motors speed
 void MotoronSetup(void);
 // @MotoronSetup for initialising the Motoron I2C bus
 void setServoMax(void);
@@ -95,8 +115,25 @@ void turnAngle(TurnDirection turnDirection);
 
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200); 
+
+  pinMode(LED_BUILTIN, OUTPUT); // Visual indicator
+  pinMode(buttonPin, INPUT_PULLUP);
+
+  // WiFi setup
+  WiFi.begin(ssid, password); // Connect to WiFi
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWi-Fi connected.");
+  Serial.print("Local IP address: ");
+  Serial.println(WiFi.localIP());
+
+  udp.begin(localPort); // Start UDP on local port
+
 
   MotoronSetup(); // Initialise Motors
   myservo.attach(52);
@@ -141,7 +178,11 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+
+  // Check for incoming UDP messages
+  checkWiFi(); 
+  // Check button state
+  checkButton();
 
   // Iterate for each IR distance sensor used (in case we add more)
   for (int i=0; i<n; i++) {
@@ -180,6 +221,46 @@ void loop() {
 
   // delay(100); default
   delay(200); // Change for reading Serial data
+}
+
+void checkWiFi() {
+  int packetSize = udp.parsePacket();
+  if (packetSize) {
+    int len = udp.read(packetBuffer, sizeof(packetBuffer) - 1);
+    if (len > 0) packetBuffer[len] = '\0';
+
+    Serial.print("Received UDP message: ");
+    Serial.println(packetBuffer);
+
+    if (strcmp(packetBuffer, "Stop") == 0) {
+      stopAllMotors();
+      motorsStopped = true;
+      Serial.println("Motors stopped.");
+    } else if (strcmp(packetBuffer, "Start") == 0) {
+      startAllMotors(200);
+      motorsStopped = false;
+      Serial.println("Motors started.");
+    }
+  }
+}
+
+void checkButton() {
+  bool currentState = digitalRead(buttonPin); // Read the current state of the button
+
+  if (lastButtonState == HIGH && currentState == LOW) {
+    buttonPressed = true;
+  }
+  lastButtonState = currentState;
+
+  if (buttonPressed) {
+    buttonPressed = false;
+
+    if (motorsStopped) {
+      startAllMotors(200);
+    } else {
+      stopAllMotors();
+    }
+  }
 }
 
 void readDistance(int sensor)
@@ -313,6 +394,28 @@ void setMotor(int motor, int speed) {
     case 3: mc2.setSpeed(3, -speed); break;
     case 4: mc1.setSpeed(3, speed); break;
   }
+}
+
+void stopAllMotors() {
+  // Stop all motors by setting speed to 0
+  setMotor(1, 0);
+  setMotor(2, 0);
+  setMotor(3, 0);
+  setMotor(4, 0);
+  #if DEBUG
+    Serial.println("All motors stopped.");
+  #endif
+}
+
+void startAllMotors(int speed) {
+  // Start all motors with the specified speed
+  setGreenLeft(speed);
+  setGreenRight(speed);
+  setBlackLeft(speed);
+  setBlackRight(speed);
+  #if DEBUG
+    Serial.println("All motors started.");
+  #endif
 }
 
 void setLeftMotors(int speed) {
