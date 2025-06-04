@@ -1,4 +1,4 @@
-#include <Arduino.h>
+// #include <Arduino.h>
 #include <Wire.h>
 #include <Motoron.h>
 #include <QTRSensors.h>
@@ -14,10 +14,10 @@
 #define DEBUG 1 // Set to 1 to enable debug messages
 
 Servo myservo;
-ICM20948_WE myIMU = ICM20948_WE(ICM20948_ADDR); 
+ICM20948_WE myIMU = ICM20948_WE(ICM20948_ADDR);
 MotoronI2C mc1(0x10);
 MotoronI2C mc2(0x50);
-WiFiUDP udp;
+// WiFiUDP udp;
 
 const int n = 2; // Number of IR Distance
 const int u_n = 2; // Number of Ultrasonic
@@ -30,14 +30,14 @@ float angleError, distanceError;
 float angle[3]; // angle[0] = x, angle[1] = y, angle[2] = z
 
 // WiFi + Kill Switch
-const char* ssid = "PhaseSpaceNetwork_2.4G"; // WiFi SSID
-const char* password = "8igMacNet"; // WiFi Password
-unsigned int localPort = 55500; // Local port for UDP
-char packetBuffer[64]; // Buffer for incoming UDP packets
-bool motorsStopped = false; // Flag to check if motors are stopped
-const int buttonPin = 2;
-bool lastButtonState = HIGH; // Last state of the button
-bool buttonPressed = false; // Flag to check if button is pressed
+// const char* ssid = "PhaseSpaceNetwork_2.4G"; // WiFi SSID
+// const char* password = "8igMacNet"; // WiFi Password
+// unsigned int localPort = 55500; // Local port for UDP
+// char packetBuffer[64]; // Buffer for incoming UDP packets
+// bool motorsStopped = false; // Flag to check if motors are stopped
+// const int buttonPin = 2;
+// bool lastButtonState = HIGH; // Last state of the button
+// bool buttonPressed = false; // Flag to check if button is pressed
 
 // Ultrasonic 1
 const int trigPin1 = 0;
@@ -64,7 +64,7 @@ enum SpinDirection { CLOCKWISE, ANTICLOCKWISE, FLIP, STRAIGHT };
 SpinDirection spinDirection = CLOCKWISE; // Default turn direction
 
 enum Orientation { LINE_TRACKING, WALL_TRACKING }; // LINE_TRACKING = black first
-Orientation orientation = LINE_TRACKING; // Default orientation
+Orientation orientation = WALL_TRACKING; // Default orientation
 
 // Func prototypes because Sophia told us to :)
 void checkWiFi(void);
@@ -114,24 +114,24 @@ void turnAngle(SpinDirection spinDirection);
 
 
 void setup() {
-  Serial.begin(115200); 
+  Serial.begin(115200);
 
-  pinMode(LED_BUILTIN, OUTPUT); // Visual indicator
-  pinMode(buttonPin, INPUT_PULLUP);
+  // pinMode(LED_BUILTIN, OUTPUT); // Visual indicator
+  // pinMode(buttonPin, INPUT_PULLUP);
 
   // WiFi setup
-  WiFi.begin(ssid, password); // Connect to WiFi
+  // WiFi.begin(ssid, password); // Connect to WiFi
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   delay(500);
+  //   Serial.print(".");
+  // }
 
-  Serial.println("\nWi-Fi connected.");
-  Serial.print("Local IP address: ");
-  Serial.println(WiFi.localIP());
+  // Serial.println("\nWi-Fi connected.");
+  // Serial.print("Local IP address: ");
+  // Serial.println(WiFi.localIP());
 
-  udp.begin(localPort); // Start UDP on local port
+  // udp.begin(localPort); // Start UDP on local port
 
 
   MotoronSetup(); // Initialise Motors
@@ -150,21 +150,21 @@ void setup() {
     setServoFlat(); // Set servo to minimum position
     Serial.println("Servo set to flat position.");
   }
-  
-  if(!myIMU.init()) {
-    Serial.println("ICM20948 does not respond");
-  }
+ 
+  // if(!myIMU.init()) {
+  //   Serial.println("ICM20948 does not respond");
+  // }
 
   Serial.println("Wall Following Script:\n");
 
 
-  Serial.println("Position your ICM20948 flat and don't move it - calibrating...");
-  delay(1000);
-  myIMU.autoOffsets();  // Automatically calibrate the gyroscope
-  Serial.println("Done!");
+  // Serial.println("Position your ICM20948 flat and don't move it - calibrating...");
+  // delay(1000);
+  // myIMU.autoOffsets();  // Automatically calibrate the gyroscope
+  // Serial.println("Done!");
 
-  myIMU.setGyrRange(ICM20948_GYRO_RANGE_250);
-  myIMU.setGyrDLPF(ICM20948_DLPF_6);
+  // myIMU.setGyrRange(ICM20948_GYRO_RANGE_250);
+  // myIMU.setGyrDLPF(ICM20948_DLPF_6);
 
   #if DEBUG
   Serial.println("Debug mode is ON");
@@ -179,9 +179,9 @@ void setup() {
 void loop() {
 
   // Check for incoming UDP messages
-  checkWiFi(); 
+  // checkWiFi();
   // Check button state
-  checkButton();
+  // checkButton();
 
   // Iterate for each IR distance sensor used (in case we add more)
   for (int i=0; i<n; i++) {
@@ -206,10 +206,11 @@ void loop() {
   }
 
   if (wallMode == TURNING) {
-    IMU(); // Read angle[]
-    if (!isTurning) startAngle = angle[2];
-    isTurning = true; // Set turning flag
-    turnAngle(spinDirection);
+    // IMU(); // Read angle[]
+    // if (!isTurning) startAngle = angle[2];
+    // isTurning = true; // Set turning flag
+    // turnAngle(spinDirection);
+    turnRight();
   }
   else {
     PID(); // Call PID function
@@ -222,50 +223,50 @@ void loop() {
   delay(200); // Change for reading Serial data
 }
 
-void checkWiFi() {
-  int packetSize = udp.parsePacket();
-  if (packetSize) {
-    int len = udp.read(packetBuffer, sizeof(packetBuffer) - 1);
-    if (len > 0) packetBuffer[len] = '\0';
+// void checkWiFi() {
+//   int packetSize = udp.parsePacket();
+//   if (packetSize) {
+//     int len = udp.read(packetBuffer, sizeof(packetBuffer) - 1);
+//     if (len > 0) packetBuffer[len] = '\0';
 
-    Serial.print("Received UDP message: ");
-    Serial.println(packetBuffer);
+//     Serial.print("Received UDP message: ");
+//     Serial.println(packetBuffer);
 
-    if (strcmp(packetBuffer, "Stop") == 0) {
-      stopAllMotors();
-      motorsStopped = true;
-      Serial.println("Motors stopped.");
-    } else if (strcmp(packetBuffer, "Start") == 0) {
-      startAllMotors(200);
-      motorsStopped = false;
-      Serial.println("Motors started.");
-    }
-  }
-}
+//     if (strcmp(packetBuffer, "Stop") == 0) {
+//       stopAllMotors();
+//       motorsStopped = true;
+//       Serial.println("Motors stopped.");
+//     } else if (strcmp(packetBuffer, "Start") == 0) {
+//       startAllMotors(200);
+//       motorsStopped = false;
+//       Serial.println("Motors started.");
+//     }
+//   }
+// }
 
-void checkButton() {
-  bool currentState = digitalRead(buttonPin); // Read the current state of the button
+// void checkButton() {
+//   bool currentState = digitalRead(buttonPin); // Read the current state of the button
 
-  if (lastButtonState == HIGH && currentState == LOW) {
-    buttonPressed = true;
-  }
-  lastButtonState = currentState;
+//   if (lastButtonState == HIGH && currentState == LOW) {
+//     buttonPressed = true;
+//   }
+//   lastButtonState = currentState;
 
-  if (buttonPressed) {
-    buttonPressed = false;
+//   if (buttonPressed) {
+//     buttonPressed = false;
 
-    if (motorsStopped) {
-      startAllMotors(200);
-    } else {
-      stopAllMotors();
-    }
-  }
-}
+//     if (motorsStopped) {
+//       startAllMotors(200);
+//     } else {
+//       stopAllMotors();
+//     }
+//   }
+// }
 
 void readDistance(int sensor)
 {
       float voltage_temp_average=0;
-      
+     
       for(int i=0; i < AVERAGE_OF; i++)
     {
       int sensorValue = analogRead(sensorPin[sensor] );
@@ -277,13 +278,13 @@ void readDistance(int sensor)
 
   // equation of the fitting curve found using data values
   // << 33.9 + -69.5x + 62.3x^2 + -25.4x^3 + 3.83x^4 >>
-  distance[sensor] = 33.9 + -69.5*(voltage_temp_average) + 62.3*pow(voltage_temp_average,2) + -25.4*pow(voltage_temp_average,3) + 3.83*pow(voltage_temp_average,4); 
+  distance[sensor] = 33.9 + -69.5*(voltage_temp_average) + 62.3*pow(voltage_temp_average,2) + -25.4*pow(voltage_temp_average,3) + 3.83*pow(voltage_temp_average,4);
   if (distance[sensor] > 20) {
     distance[sensor] = -1;
   }
 }
 
-void readUltrasonic(void) 
+void readUltrasonic(void)
 {
   // Clear the trigger pin
   digitalWrite(trigPin1, LOW);
@@ -328,13 +329,14 @@ void PID() {
   static float prevAngleError = 0;
   static float angleIntegral = 0;
   static unsigned long lastTime = 0; // for dt
-  unsigned long currentTime = millis(); 
+  unsigned long currentTime = millis();
 
   float dt = (currentTime - lastTime) / 1000.0; // convert to seconds
   lastTime = currentTime;
 
   if (leftFront > 0 && leftBack > 0) { // valid values
-    float targetDistance = 4.2;
+    // float targetDistance = 4.2;
+    float targetDistance = 6.5;
 
     // // Compute errors
     // float distanceError = ((leftFront + leftBack) / 2.0) - targetDistance;
@@ -360,7 +362,7 @@ void PID() {
     float totalAngleError = angleKp * angleError + angleKi * angleIntegral + angleKd * angleDerivative;
 
     // Calculate motor speeds
-    float baseSpeed = 300; 
+    float baseSpeed = 300;
     float leftSpeed = baseSpeed - totalDistanceError - totalAngleError;
     float rightSpeed = baseSpeed + totalDistanceError + totalAngleError;
 
@@ -499,66 +501,99 @@ void setServoFlat() {
     myservo.write(pos);              // tell servo to go to position in variable 'pos'
     delay(15);
     }
-  } 
+  }
 }
 
 void IMU() {
-  float angleX = 0.0;
-  float angleY = 0.0;
-  float angleZ = 0.0;
-  static unsigned long lastTime = millis();      // Initialize time
-  
+  static unsigned long lastTime = millis();
   myIMU.readSensor();
   xyzFloat gyr;
-  myIMU.getGyrValues(&gyr);  // Get angular velocity (unit: °/s)
+  myIMU.getGyrValues(&gyr);
 
   unsigned long currentTime = millis();
-  float dt = (currentTime - lastTime) / 1000.0;  // Calculate time difference, unit: seconds
+  float dt = (currentTime - lastTime) / 1000.0;
   lastTime = currentTime;
 
-  // Filtering
   float threshold = 0.2;
   if (abs(gyr.x) < threshold) gyr.x = 0.0;
   if (abs(gyr.y) < threshold) gyr.y = 0.0;
   if (abs(gyr.z) < threshold) gyr.z = 0.0;
 
-  // Accumulate angle (around Z axis): angular velocity × time difference
-  angleX += gyr.x * dt;
-  angleY += gyr.y * dt;
-  angleZ += gyr.z * dt;
-
-  // Store in global array
-  angle[0] = angleX;
-  angle[1] = angleY;
-  angle[2] = angleZ;
+  // Accumulate directly in the global array
+  angle[0] += gyr.x * dt;
+  angle[1] += gyr.y * dt;
+  angle[2] += gyr.z * dt;
 
   #if DEBUG
-    // Serial.print("Angular velocity (°/s): X=");
-    // Serial.print(gyr.x);
-    // Serial.print(" Y=");
-    // Serial.print(gyr.y);
-    // Serial.print(" Z=");
-    // Serial.println(gyr.z);
-
-    // Output current angle information
-
-    Serial.print("Accumulated angle (°): X=");
-    Serial.print(angleX);
-    Serial.print(" Y=");
-    Serial.print(angleY);
-    Serial.print(" Z=");
-    Serial.println(angleZ);
+  Serial.print("Accumulated angle (°): X=");
+  Serial.print(angle[0]);
+  Serial.print(" Y=");
+  Serial.print(angle[1]);
+  Serial.print(" Z=");
+  Serial.println(angle[2]);
   #endif
-
-  delay(20); // Approx. 50Hz sampling
 }
 
+
+
+// void IMU() {
+  // float angleX = 0.0;
+  // float angleY = 0.0;
+  // float angleZ = 0.0;
+  // static unsigned long lastTime = millis();      // Initialize time
+ 
+  // myIMU.readSensor();
+  // xyzFloat gyr;
+  // myIMU.getGyrValues(&gyr);  // Get angular velocity (unit: °/s)
+
+  // unsigned long currentTime = millis();
+  // float dt = (currentTime - lastTime) / 1000.0;  // Calculate time difference, unit: seconds
+  // lastTime = currentTime;
+
+  // // Filtering
+  // float threshold = 0.2;
+  // if (abs(gyr.x) < threshold) gyr.x = 0.0;
+  // if (abs(gyr.y) < threshold) gyr.y = 0.0;
+  // if (abs(gyr.z) < threshold) gyr.z = 0.0;
+
+  // // Accumulate angle (around Z axis): angular velocity × time difference
+  // angleX += gyr.x * dt;
+  // angleY += gyr.y * dt;
+  // angleZ += gyr.z * dt;
+
+  // // Store in global array
+  // angle[0] = angleX;
+  // angle[1] = angleY;
+  // angle[2] = angleZ;
+
+  // #if DEBUG
+  //   // Serial.print("Angular velocity (°/s): X=");
+  //   // Serial.print(gyr.x);
+  //   // Serial.print(" Y=");
+  //   // Serial.print(gyr.y);
+  //   // Serial.print(" Z=");
+  //   // Serial.println(gyr.z);
+
+  //   // Output current angle information
+
+  //   Serial.print("Accumulated angle (°): X=");
+  //   Serial.print(angleX);
+  //   Serial.print(" Y=");
+  //   Serial.print(angleY);
+  //   Serial.print(" Z=");
+  //   Serial.println(angleZ);
+  // #endif
+
+  // delay(20); // Approx. 50Hz sampling
+// }
+
 void turnRight() { // Needs editing and testing deprecated
-  // Turn right by setting the left motor to a negative speed and the right motor to a positive speed 
-  setGreenLeft(800);
-  setGreenRight(-800);
+  // Turn right by setting the left motor to a negative speed and the right motor to a positive speed
+  setGreenLeft(600);
+  setGreenRight(-600);
   Serial.println("Turning Right...");
-  delay(2000);
+  delay(100);
+  wallMode = WALL_FOLLOW;
 }
 
 void turnAngle(SpinDirection spinDirection) {
@@ -610,7 +645,7 @@ void turnAngle(SpinDirection spinDirection) {
   if (!finishedTurning) {
     setGreenLeft(leftSpeed);
     setGreenRight(rightSpeed);
-    
+   
     #if DEBUG
       Serial.print("Turning... Current angle: ");
       Serial.print(currentAngle);
