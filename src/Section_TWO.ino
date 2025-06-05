@@ -246,22 +246,49 @@ void loop() {
 
 
   // Check if the object is within 10 cm (sensor one - change to front or back)
+  // if ((u_distance[0] < 15.0) && (u_distance[0] > 1)) {
+  //   // Serial.print("Wall detected Ultrasound Sensor 1 (distance < 5 cm):");
+  //   // Serial.print(u_distance[0], 2);
+  //   // Serial.println(" cm");
+  //   wallMode = TURNING; // Change to turning mode
+  // }
+
+  // if (wallMode == TURNING) {
+  //   IMU(); // Read angle[]
+  //   if (!isTurning) startAngle = angle[2];
+  //   isTurning = true; // Set turning flag
+  //   turnAngle(spinDirection);
+  // }
+  // else {
+  //   PID(); // Call PID function
+  // }
+
+   // Wall following and turning
   if ((u_distance[0] < 15.0) && (u_distance[0] > 1)) {
-    // Serial.print("Wall detected Ultrasound Sensor 1 (distance < 5 cm):");
-    // Serial.print(u_distance[0], 2);
-    // Serial.println(" cm");
-    wallMode = TURNING; // Change to turning mode
+    // Wall detected, handle turning if needed
+    if (wallMode == TURNING) {
+      IMU();
+      if (!isTurning) startAngle = angle[2];
+      isTurning = true;
+      turnAngle(spinDirection);
+      // After turn is complete, wallMode will be set to WALL_FOLLOW in turnAngle()
+    } else {
+      PID();
+    }
+  } else {
+    // Wall lost, go to next obstacle
+    obstacleCounter++;
+    if (obstacleCounter < (sizeof(obstacleOrder) / sizeof(obstacleOrder[0]))) {
+      obstacle = obstacleOrder[obstacleCounter];
+      onObstacle = true;
+      Serial.println("Wall lost, switching to next obstacle.");
+    } else {
+      Serial.println("All obstacles completed.");
+      stopAllMotors();
+      while (1); // Stop execution
+    }
   }
 
-  if (wallMode == TURNING) {
-    IMU(); // Read angle[]
-    if (!isTurning) startAngle = angle[2];
-    isTurning = true; // Set turning flag
-    turnAngle(spinDirection);
-  }
-  else {
-    PID(); // Call PID function
-  }
 
   // PID();
   // Serial.println("PID Called");
