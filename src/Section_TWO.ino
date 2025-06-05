@@ -13,6 +13,10 @@
 #define MCU_VOLTAGE 5
 #define ICM20948_ADDR 0x68 // ICM20948 address;
 #define DEBUG 1 // Set to 1 to enable debug messages
+#define MAX_SERVO 140
+#define MIN_SERVO 10
+#define FLAT_SERVO 25
+#define OBSTACLE_SERVO 90
 
 Servo myservo;
 ICM20948_WE myIMU = ICM20948_WE(ICM20948_ADDR); 
@@ -77,7 +81,17 @@ enum Obstacle {
     LUNAR_SURFACE,
     NONE
 };
-Obstacle obstacle = NONE; // Default obstacle
+
+int obstacleCounter = 0;
+Obstacle obstacleOrder[] ={
+  RAMP,
+  STAIRCASE,
+  GIANT_CAUSEWAY,
+  TREADMILL,
+  LUNAR_SURFACE,
+};
+
+Obstacle obstacle = obstacleOrder[obstacleCounter]; // Default obstacle
 
 // Func prototypes because Sophia told us to :)
 void checkWiFi(void);
@@ -157,10 +171,10 @@ void setup() {
   pinMode(echoPin2, INPUT);
 
   if (servoMode == SHORT_MODE) {
-    setServoMax(); // Set servo to maximum position
+    setServoAngle(MAX_SERVO); // Set servo to maximum position
     Serial.println("Servo set to maximum position.");
   } else if (servoMode == LONG_MODE) {
-    setServoFlat(); // Set servo to minimum position
+    setServoAngle(FLAT_SERVO); // Set servo to minimum position
     Serial.println("Servo set to flat position.");
   }
   
@@ -470,49 +484,11 @@ void MotoronSetup() {
   mc2.clearResetFlag();
 }
 
-void setServoMax() {
-  int pos;
-  int initPos = myservo.read();
-
-  for (pos = 25; pos <= 140; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-    myservo.write(pos);              // tell servo to go to position in variable 'pos'
-    delay(15);
-  }
-}
-
-void setServoMin() {
-  int pos;
-  int initPos = myservo.read();
-
-  for (pos = initPos; pos >= 30; pos -= 1) { // goes from 180 degrees to 0 degrees
-    // in steps of 1 degree
-    myservo.write(pos);              // tell servo to go to position in variable 'pos'
-    delay(15);
-  }
-}
-
-void setServoFlat() {
-  int pos;
-  int initPos = myservo.read();
-
-  // Decrement position
-  if (initPos > 30) {
-    for (pos = initPos; pos <= 30; pos -= 1) { // goes from 180 degrees to 0 degrees
-    // in steps of 1 degree
-    myservo.write(pos);              // tell servo to go to position in variable 'pos'
-    delay(15);
+void setServoAngle(int angle) {
+    for (int pos = FLAT_SERVO; pos <= angle; pos +=1) {
+        myservo.write(pos); // tell servo to go to position in variable 'pos'
+        delay(15);
     }
-  }
-
-  // Increment position
-  else if (initPos < 30) {
-    for (pos = initPos; pos >= 30; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-    myservo.write(pos);              // tell servo to go to position in variable 'pos'
-    delay(15);
-    }
-  } 
 }
 
 void IMU() {
@@ -568,10 +544,10 @@ void IMU() {
 
 void turnRight() { // Needs editing and testing deprecated
   // Turn right by setting the left motor to a negative speed and the right motor to a positive speed 
-  setGreenLeft(800);
-  setGreenRight(-800);
+  setGreenLeft(600);
+  setGreenRight(-600);
   Serial.println("Turning Right...");
-  delay(2000);
+  delay(100);
 }
 
 void turnAngle(SpinDirection spinDirection) {
@@ -639,4 +615,47 @@ void turnAngle(SpinDirection spinDirection) {
     Serial.println("Turn completed. Returning to wall following mode.");
   }
 
+}
+
+void doObstacle(Obstacle obstacle) {
+  delay(200);
+
+  switch (obstacle) {
+    case GIANT_CAUSEWAY:
+      myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
+      setLeftMotors(600);
+      setRightMotors(600);
+      
+      break;
+    case STAIRCASE:
+      myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
+      setLeftMotors(600);
+      setRightMotors(600);
+      break;
+    case DRAGON_LAVA_PIT:
+      myservo.write(FLAT_SERVO); // Set servo to obstacle position
+      setLeftMotors(600);
+      setRightMotors(600);
+      break;
+    case TREADMILL:
+      myservo.write(FLAT_SERVO); // Set servo to obstacle position
+      setLeftMotors(600);
+      setRightMotors(600);
+      break;
+    case ZIPLINE:
+      myservo.write(FLAT_SERVO); // Set servo to obstacle position
+      setLeftMotors(600);
+      setRightMotors(600);
+      break;
+    case RAMP:
+      myservo.write(FLAT_SERVO); // Set servo to obstacle position
+      setLeftMotors(600);
+      setRightMotors(600);
+      break;
+    case LUNAR_SURFACE:
+      myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
+      break;
+    default:
+      Serial.println("No obstacle detected.");
+  }
 }
