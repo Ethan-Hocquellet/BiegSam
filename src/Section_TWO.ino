@@ -54,6 +54,7 @@ const int echoPin2 = 12;
 // turning
 float startAngle = 0.0; // Starting angle for turning function
 bool isTurning = false;
+bool onObstacle = true;
 
 const float sensorSeparation = 23; // distance between the two IR distance sensors
 
@@ -224,11 +225,31 @@ void loop() {
   Serial.print("Wall distance: ");
   Serial.print(u_distance[0]);
   Serial.println(" cm");
+
+  // Obstacle handling state machine
+  if (onObstacle) {
+    Serial.print("Handling obstacle: ");
+    Serial.println(obstacle);
+    doObstacle(obstacleOrder[obstacleCounter]);
+
+    // Check for wall after obstacle
+    if ((u_distance[0] < 15.0) && (u_distance[0] > 1)) {
+      Serial.print("Wall detected after obstacle. Distance: ");
+      Serial.println(u_distance[0]);
+      wallMode = TURNING;
+      onObstacle = false; // Switch to wall following/turning
+      isTurning = false;  // Reset turning flag
+    }
+    delay(200);
+    return; // Stay in obstacle mode until wall is found
+  }
+
+
   // Check if the object is within 10 cm (sensor one - change to front or back)
   if ((u_distance[0] < 15.0) && (u_distance[0] > 1)) {
-    Serial.print("Wall detected Ultrasound Sensor 1 (distance < 5 cm):");
-    Serial.print(u_distance[0], 2);
-    Serial.println(" cm");
+    // Serial.print("Wall detected Ultrasound Sensor 1 (distance < 5 cm):");
+    // Serial.print(u_distance[0], 2);
+    // Serial.println(" cm");
     wallMode = TURNING; // Change to turning mode
   }
 
@@ -619,43 +640,44 @@ void turnAngle(SpinDirection spinDirection) {
 
 void doObstacle(Obstacle obstacle) {
   delay(200);
-
-  switch (obstacle) {
-    case GIANT_CAUSEWAY:
-      myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
-      setLeftMotors(600);
-      setRightMotors(600);
-      
-      break;
-    case STAIRCASE:
-      myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
-      setLeftMotors(600);
-      setRightMotors(600);
-      break;
-    case DRAGON_LAVA_PIT:
-      myservo.write(FLAT_SERVO); // Set servo to obstacle position
-      setLeftMotors(600);
-      setRightMotors(600);
-      break;
-    case TREADMILL:
-      myservo.write(FLAT_SERVO); // Set servo to obstacle position
-      setLeftMotors(600);
-      setRightMotors(600);
-      break;
-    case ZIPLINE:
-      myservo.write(FLAT_SERVO); // Set servo to obstacle position
-      setLeftMotors(600);
-      setRightMotors(600);
-      break;
-    case RAMP:
-      myservo.write(FLAT_SERVO); // Set servo to obstacle position
-      setLeftMotors(600);
-      setRightMotors(600);
-      break;
-    case LUNAR_SURFACE:
-      myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
-      break;
-    default:
-      Serial.println("No obstacle detected.");
+  while (u_distance[0] > 10) {
+    readUltrasonic(); // Read ultrasonic sensors before handling the obstacle
+    switch (obstacle) {
+      case GIANT_CAUSEWAY:
+        myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
+        setLeftMotors(600);
+        setRightMotors(600);
+        break;
+      case STAIRCASE:
+        myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
+        setLeftMotors(600);
+        setRightMotors(600);
+        break;
+      case DRAGON_LAVA_PIT:
+        myservo.write(FLAT_SERVO); // Set servo to obstacle position
+        setLeftMotors(600);
+        setRightMotors(600);
+        break;
+      case TREADMILL:
+        myservo.write(FLAT_SERVO); // Set servo to obstacle position
+        setLeftMotors(600);
+        setRightMotors(600);
+        break;
+      case ZIPLINE:
+        myservo.write(FLAT_SERVO); // Set servo to obstacle position
+        setLeftMotors(600);
+        setRightMotors(600);
+        break;
+      case RAMP:
+        myservo.write(FLAT_SERVO); // Set servo to obstacle position
+        setLeftMotors(600);
+        setRightMotors(600);
+        break;
+      case LUNAR_SURFACE:
+        myservo.write(OBSTACLE_SERVO); // Set servo to obstacle position
+        break;
+      default:
+        Serial.println("No obstacle detected.");
+    }
   }
 }
