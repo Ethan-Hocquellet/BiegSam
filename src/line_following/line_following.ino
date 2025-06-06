@@ -390,10 +390,9 @@ void setup() {
 }
 void recali() {
   bool currentDark = isDark();
-  // 检测状态是否变化
   if (currentDark != lastDarkState) {
-    calibration();  // 状态发生变化时，执行校准
-    lastDarkState = currentDark;  // 更新记录状态
+    calibration(); 
+    lastDarkState = currentDark; 
   }
 }
 void loop() {
@@ -406,10 +405,10 @@ void loop() {
 }
 void waitForButtonPressBlocking() {
   // bool localButtonPressed = false;
-  // bool localLastButtonState = lastButtonState; // 用你的 lastButtonState 变量初值
+  // bool localLastButtonState = lastButtonState;
   // int i = 0;
   // while (!localButtonPressed) {
-  //   // 保持 UDP 消息监听
+  //  
   //   if(i==1){
   //     setLeftMotors(0);
   //     setRightMotors(0);
@@ -428,16 +427,16 @@ void waitForButtonPressBlocking() {
   //     }
   //   }
 
-  //   // 按钮状态检测
+  //   
   //   bool currentState = digitalRead(buttonPin);
   //   if (localLastButtonState == HIGH && currentState == LOW) {
-  //     localButtonPressed = true;  // 检测到按钮按下，退出阻塞
+  //     localButtonPressed = true;  
   //   }
   //   localLastButtonState = currentState;
 
-  //   delay(10); // 防抖和减负
+  //   delay(10); 
     
   // }
-  // // 同步外部 lastButtonState，保持状态一致
+  // 
   // lastButtonState = localLastButtonState;
 }
