@@ -1,7 +1,7 @@
 
-# 🤖 Robotics Challenge – Arduino Robot Code
+# 🤖 Robotics Challenge – BiegSam
 
-This repository contains all the Arduino code used for our robot in the **Robotics Challenge**. The code is split into three key `.ino` files, each corresponding to a specific section of the challenge course.
+This repository contains all the Arduino code used for our robot **BIEGSAM** in the **Robotics Challenge**. The code is split into three key `.ino` files, each corresponding to a specific section of the challenge course.
 
 > ✅ **Plug-and-play ready** — just upload the right code for each section and adjust the motor driver I2C addresses if needed.
 
