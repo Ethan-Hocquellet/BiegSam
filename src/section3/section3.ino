@@ -1,7 +1,23 @@
-// ------------- 变量和定义新增 -------------
-const int DIST_SENSOR_PIN = A8; // 替换为你连接的模拟引脚
+#include <Wire.h>
+#include <Servo.h>
+#include <ICM20948_WE.h>
+#include <QTRSensors.h>
+
+// -------- Pin Definitions --------
+const int DIST_SENSOR_PIN = A0;
 const int HOOK_SERVO_PIN = 53;
+const int SERVO_PIN = 52;
+const int SERVO_ANGLE = 150;
+
 Servo hookServo;
+Servo myServo;
+
+QTRSensors qtr;
+const uint8_t SensorCount = 12;
+uint16_t sensorValues[SensorCount];
+const uint8_t sensorPins[SensorCount] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+const int leftThreshold = 500;   // Adjust as needed
+const int rightThreshold = 500;  // Adjust as needed
 
 bool lavaTriggered = false;
 bool lavaCompleted = false;
@@ -10,7 +26,18 @@ bool returningFromLava = false;
 bool droppedObject = false;
 bool finalReturn = false;
 
-// ------------- 读取距离封装 -------------
+// -------- Function Prototypes (External dependencies) --------
+void setLeftMotors(int speed);
+void setRightMotors(int speed);
+void MotoronSetup();
+void initIMU();
+void updateIMU();
+float getAngleZ();
+void updateState();
+void handleState();
+void calibration();
+
+// -------- Lava Pit Distance Read --------
 float readLavaDistanceCM() {
   int raw = analogRead(DIST_SENSOR_PIN);
   float voltage = raw * (5.0 / 1023.0);
@@ -19,29 +46,29 @@ float readLavaDistanceCM() {
   return d;
 }
 
-// ------------- LavaPit 模式主逻辑 -------------
+// -------- LavaPit State Machine --------
 void handleLavaPit() {
   static unsigned long lastPhaseTime = 0;
   static int phase = 0;
   float angleZNow = getAngleZ();
 
   switch (phase) {
-    case 0: // 倒车 2 秒
+    case 0:
       setLeftMotors(-250);
       setRightMotors(-250);
       lastPhaseTime = millis();
       phase = 1;
       break;
 
-    case 1: // 等 2 秒结束
+    case 1:
       if (millis() - lastPhaseTime > 2000) {
         lastPhaseTime = millis();
-        angleZ = 0.0; // 重置角度积分
+        angleZNow = 0.0;
         phase = 2;
       }
       break;
 
-    case 2: // 180°原地掉头
+    case 2:
       setLeftMotors(600);
       setRightMotors(-600);
       updateIMU();
@@ -52,13 +79,13 @@ void handleLavaPit() {
       }
       break;
 
-    case 3: // Servo 转到 25 度
+    case 3:
       myServo.write(25);
       delay(500);
       phase = 4;
       break;
 
-    case 4: // 倒车直到接近目标点
+    case 4:
       setLeftMotors(-400);
       setRightMotors(-400);
       if (readLavaDistanceCM() < 10.0) {
@@ -68,13 +95,13 @@ void handleLavaPit() {
       }
       break;
 
-    case 5: // 放下 hook = 0
+    case 5:
       hookServo.write(0);
       delay(1000);
       phase = 6;
       break;
 
-    case 6: // 以 650 速度倒车离开
+    case 6:
       setLeftMotors(-650);
       setRightMotors(-650);
       if (readLavaDistanceCM() > 10.0) {
@@ -84,20 +111,20 @@ void handleLavaPit() {
       }
       break;
 
-    case 7: // hook 抬起到 50，再停一秒
+    case 7:
       hookServo.write(50);
       delay(1000);
       phase = 8;
       break;
 
-    case 8: // Servo 恢复到 150
+    case 8:
       myServo.write(150);
       delay(500);
       phase = 9;
-      angleZ = 0.0;
+      angleZNow = 0.0;
       break;
 
-    case 9: // 再次原地 180°旋转回来
+    case 9:
       setLeftMotors(600);
       setRightMotors(-600);
       updateIMU();
@@ -107,13 +134,13 @@ void handleLavaPit() {
         lavaCompleted = true;
         lavaTriggered = false;
         lavaStartTime = millis();
-        phase = 0; // 重置状态机
+        phase = 0;
       }
       break;
   }
 }
 
-// ------------- 更新主 loop() -------------
+// -------- Main Loop --------
 void loop() {
   updateIMU();
   qtr.read(sensorValues);
@@ -124,15 +151,13 @@ void loop() {
 
   if (lavaTriggered && !lavaCompleted) {
     handleLavaPit();
-    return; // 停止其他行为
+    return;
   }
 
-  // Lava 回归后的线循
   if (lavaCompleted && !finalReturn) {
     updateState();
     handleState();
 
-    // 等两秒后，若左右都探测到线则触发最终动作
     if (millis() - lavaStartTime > 2000) {
       bool leftLine = sensorValues[9] > leftThreshold;
       bool rightLine = sensorValues[11] > rightThreshold;
@@ -141,21 +166,20 @@ void loop() {
         setLeftMotors(800);
         setRightMotors(800);
         delay(1000);
-        hookServo.write(0); // 放下钩子
+        hookServo.write(0);
         delay(1000);
-        finalReturn = true; // 防止重复执行
+        finalReturn = true;
       }
     }
     return;
   }
 
-  // 初始普通行为
   updateState();
   handleState();
   delay(10);
 }
 
-// ------------- Setup 中新增 Hook Servo 初始化 -------------
+// -------- Setup --------
 void setup() {
   Serial.begin(115200);
   MotoronSetup();
